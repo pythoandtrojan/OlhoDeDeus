@@ -2,11 +2,15 @@
 
 import os
 from colorama import Fore, Style, init
+from tabulate import tabulate
 
 init(autoreset=True)
 
 class LinkedInDatabase:
-    def __init__(self, arquivo_path="dados/br.linkedin.com_LP-40000.txt"):
+    def __init__(self, arquivo_path=None):
+        if arquivo_path is None:
+            base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+            arquivo_path = os.path.join(base_dir, "dados", "br.linkedin.com_LP-40000.txt")
         self.arquivo_path = arquivo_path
         self.dados = []
         self.carregar_dados()
@@ -24,34 +28,81 @@ class LinkedInDatabase:
                         usuario, senha = linha.split(':', 1)
                         self.dados.append({'usuario': usuario, 'senha': senha})
             
-            print(Fore.GREEN + f"Carregados {len(self.dados)} registros")
+            print(Fore.GREEN + f"✓ Carregados {len(self.dados)} registros do LinkedIn")
             return True
             
         except Exception as e:
             print(Fore.RED + f"Erro: {str(e)}")
             return False
     
-    def buscar(self, usuario=None):
+    def mostrar_todos(self):
+        if not self.dados:
+            print(Fore.YELLOW + "Nenhum dado no banco de dados!")
+            return None
+        
+        tabela = []
+        for i, item in enumerate(self.dados, 1):
+            tabela.append([i, item['usuario'], item['senha']])
+        
+        print(Fore.CYAN + "\n📊 TODOS OS REGISTROS DO BANCO DE DADOS")
+        print(tabulate(tabela, headers=["#", "USUÁRIO", "SENHA"], tablefmt="rounded_grid"))
+        print(Fore.MAGENTA + f"\n📌 Total: {len(self.dados)} registros\n")
+        
+        return self.dados
+    
+    def buscar_usuario(self, usuario):
         try:
-            if usuario:
-                resultados = [item for item in self.dados if item['usuario'].lower() == usuario.lower()]
-                if not resultados:
-                    print(Fore.RED + f"Usuário '{usuario}' não encontrado!")
-                    return None
-            else:
-                resultados = self.dados
-                if not resultados:
-                    print(Fore.YELLOW + "Banco de dados vazio!")
-                    return None
+            if not usuario:
+                print(Fore.YELLOW + "Digite um usuário válido!")
+                return None
             
-            self._mostrar_tabela(resultados, usuario if usuario else "TODOS OS REGISTROS")
+            resultados = [item for item in self.dados if item['usuario'].lower() == usuario.lower()]
+            
+            if not resultados:
+                print(Fore.RED + f"❌ Usuário '{usuario}' não encontrado!")
+                return None
+            
+            tabela = []
+            for i, item in enumerate(resultados, 1):
+                tabela.append([i, item['usuario'], item['senha']])
+            
+            print(Fore.CYAN + f"\n🔍 RESULTADO PARA: {usuario}")
+            print(tabulate(tabela, headers=["#", "USUÁRIO", "SENHA"], tablefmt="rounded_grid"))
+            print(Fore.MAGENTA + f"\n📌 Encontrado: {len(resultados)} registro(s)\n")
+            
             return resultados
             
         except Exception as e:
             print(Fore.RED + f"Erro na busca: {str(e)}")
             return None
     
-    def salvar(self, dados=None, nome_arquivo="linkedin_resultado.txt"):
+    def buscar_senha(self, senha):
+        try:
+            if not senha:
+                print(Fore.YELLOW + "Digite uma senha válida!")
+                return None
+            
+            resultados = [item for item in self.dados if item['senha'] == senha]
+            
+            if not resultados:
+                print(Fore.RED + f"❌ Nenhum registro com a senha fornecida!")
+                return None
+            
+            tabela = []
+            for i, item in enumerate(resultados, 1):
+                tabela.append([i, item['usuario'], item['senha']])
+            
+            print(Fore.CYAN + f"\n🔍 RESULTADO PARA SENHA: {senha[:20]}...")
+            print(tabulate(tabela, headers=["#", "USUÁRIO", "SENHA"], tablefmt="rounded_grid"))
+            print(Fore.MAGENTA + f"\n📌 Encontrado: {len(resultados)} registro(s)\n")
+            
+            return resultados
+            
+        except Exception as e:
+            print(Fore.RED + f"Erro na busca: {str(e)}")
+            return None
+    
+    def salvar(self, dados=None, nome_arquivo="linkedin_export.txt"):
         try:
             if dados is None:
                 dados = self.dados
@@ -61,42 +112,29 @@ class LinkedInDatabase:
                 return False
             
             with open(nome_arquivo, 'w', encoding='utf-8') as f:
-                f.write(f"LinkedIn Database - {len(dados)} registros\n")
+                f.write(f"LinkedIn Database Export - {len(dados)} registros\n")
                 f.write("=" * 80 + "\n")
+                f.write(f"{'USUÁRIO':<40} {'SENHA':<40}\n")
+                f.write("-" * 80 + "\n")
                 for item in dados:
-                    f.write(f"{item['usuario']}:{item['senha']}\n")
+                    f.write(f"{item['usuario']:<40} {item['senha']:<40}\n")
+                f.write("=" * 80 + "\n")
             
-            print(Fore.GREEN + f"Salvo em: {nome_arquivo}")
+            print(Fore.GREEN + f"✓ Dados salvos em: {nome_arquivo}")
             return True
             
         except Exception as e:
             print(Fore.RED + f"Erro ao salvar: {str(e)}")
             return False
     
-    def buscar_ou_salvar(self, usuario=None, salvar=False, nome_arquivo=None):
-        resultados = self.buscar(usuario)
+    def buscar_e_salvar(self, usuario=None, salvar=True):
+        if usuario:
+            resultados = self.buscar_usuario(usuario)
+        else:
+            resultados = self.mostrar_todos()
         
         if resultados and salvar:
-            nome = nome_arquivo if nome_arquivo else f"resultado_{usuario if usuario else 'todos'}.txt"
+            nome = f"export_{usuario if usuario else 'todos'}.txt"
             self.salvar(resultados, nome)
         
         return resultados
-    
-    def _mostrar_tabela(self, dados, titulo):
-        print("\n" + "=" * 90)
-        print(Fore.CYAN + Style.BRIGHT + f" LinkedIn - {titulo}")
-        print("=" * 90)
-        
-        print(f"{Fore.YELLOW}{'#' :<6} {Fore.GREEN}{'USUÁRIO' :<40} {Fore.BLUE}{'SENHA' :<40}")
-        print(Fore.WHITE + "-" * 90)
-        
-        for i, item in enumerate(dados, 1):
-            usuario = item['usuario'][:38] if len(item['usuario']) > 38 else item['usuario']
-            senha = item['senha'][:38] if len(item['senha']) > 38 else item['senha']
-            
-            cor_usuario = Fore.GREEN if i % 2 == 0 else Fore.YELLOW
-            print(f"{cor_usuario}{i :<6} {Fore.WHITE}{usuario :<40} {Fore.BLUE}{senha :<40}")
-        
-        print(Fore.WHITE + "-" * 90)
-        print(Fore.MAGENTA + f"Total: {len(dados)} registros")
-        print("=" * 90 + "\n")
